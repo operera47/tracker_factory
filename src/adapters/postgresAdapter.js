@@ -86,33 +86,108 @@ function query(schema, table) {
 
 export const postgresAdapter = {
   async existeRegistro(schema, table, field, value, operator = 'eq') {
-    let q = query(schema, table)
-      .select(field, { count: 'exact', head: true })
-      .limit(1)
-    
-    q = q[operator](field, value)
-    const { count, error } = await q.execute()
-    if (error) throw error
-    return count > 0
+    try {
+      let q = query(schema, table)
+        .select('id')
+        .limit(1)
+      
+      q = q[operator](field, value)
+      const { data, error } = await q.execute()
+      if (error) throw error
+      return data && data.length > 0
+    } catch (err) {
+      console.error('Error en existeRegistro:', err)
+      throw err
+    }
   },
 
   async getRoutes() {
-    const { data, error } = await query('tracking', 'routes')
-      .select('id, name, distance_m, date, created_at')
-      .order('created_at', { ascending: false })
-      .execute()
-    
-    if (error) throw error
-    return data
+    try {
+      const { data, error } = await query('tracking', 'routes')
+        .select('id, name, distance_m, date, created_at')
+        .order('created_at', { ascending: false })
+        .execute()
+      
+      if (error) throw error
+      return data || []
+    } catch (err) {
+      console.error('Error en getRoutes:', err)
+      throw err
+    }
+  },
+
+  async getRouteById(id) {
+    try {
+      const sql = `SELECT * FROM tracking.routes WHERE id = $1`
+      const result = await pool.query(sql, [id])
+      return result.rows[0] || null
+    } catch (err) {
+      console.error('Error en getRouteById:', err)
+      throw err
+    }
   },
 
   async getActivityTypes() {
-    const { data, error } = await query('tracking', 'activity_types')
-      .select('*')
-      .order('name')
-      .execute()
-    
-    if (error) throw error
-    return data
+    try {
+      const { data, error } = await query('tracking', 'activity_types')
+        .select('*')
+        .order('name')
+        .execute()
+      
+      if (error) throw error
+      return data || []
+    } catch (err) {
+      console.error('Error en getActivityTypes:', err)
+      throw err
+    }
+  },
+
+  async insertarRuta(payload) {
+    try {
+      const { name, geometry, distance_m, date, activity_type_id } = payload
+      const sql = `
+        INSERT INTO tracking.routes (name, geometry, distance_m, date, activity_type_id)
+        VALUES ($1, $2, $3, $4, $5)
+        RETURNING id, name, geometry, distance_m, date, created_at, activity_type_id
+      `
+      const result = await pool.query(sql, [
+        name,
+        JSON.stringify(geometry),
+        distance_m || 0,
+        date,
+        activity_type_id || null
+      ])
+      return result.rows[0]
+    } catch (err) {
+      console.error('Error en insertarRuta:', err)
+      throw err
+    }
+  },
+
+  async actualizarNombreRuta(id, nombre) {
+    try {
+      const sql = `
+        UPDATE tracking.routes 
+        SET name = $1 
+        WHERE id = $2 
+        RETURNING *
+      `
+      const result = await pool.query(sql, [nombre, id])
+      return result.rows[0] || null
+    } catch (err) {
+      console.error('Error en actualizarNombreRuta:', err)
+      throw err
+    }
+  },
+
+  async borrarRuta(schema, table, id) {
+    try {
+      const sql = `DELETE FROM ${schema}.${table} WHERE id = $1`
+      await pool.query(sql, [id])
+      return { success: true }
+    } catch (err) {
+      console.error('Error en borrarRuta:', err)
+      throw err
+    }
   }
 }

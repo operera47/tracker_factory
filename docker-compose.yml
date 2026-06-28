@@ -1,0 +1,47 @@
+services:
+  api:
+    build: .
+    container_name: tracker-api
+    restart: unless-stopped
+    environment:
+      - DB_PROVIDER=postgres
+      - PG_HOST=tracker-postgres
+      - PG_PORT=5432
+      - PG_USER=postgres
+      - PG_PASSWORD=r4VLkoEfqPnQZG
+      - PG_DATABASE=tracker
+      - API_KEY=cambia_esto_por_una_clave_secreta
+      - PORT=3000
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      - postgres
+    networks:
+      - tracker-network
+
+  postgres:
+    image: postgres:16
+    container_name: tracker-postgres
+    restart: unless-stopped
+    environment:
+      - POSTGRES_PASSWORD=r4VLkoEfqPnQZG
+      - POSTGRES_DB=tracker
+    volumes:
+      - ./tracker-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - tracker-network
+
+  adminer:
+    image: adminer:latest
+    container_name: tracker-adminer
+    restart: unless-stopped
+    ports:
+      - "8081:8080"
+    networks:
+      - tracker-network
+
+networks:
+  tracker-network:
+    driver: bridge
